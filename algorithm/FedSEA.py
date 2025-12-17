@@ -10,7 +10,7 @@ from algorithm.Base import BaseServer, BaseClient
 from utils.stats import graph_structural_entropy, compute_class_prototypes
 from utils.graph_ops import fuse_graphs, softmax_weights
 from backbone.GraphDiffusionGenerator import GraphDiffusionGenerator
-from utils.training_utils import generator_loss_from_stats
+from utils.training_utils import calculate_generator_loss
 from utils.utils import compute_criterion  # Optional parameter retention
 
 
@@ -168,7 +168,7 @@ class FedSEAServer(BaseServer):
                 self.gen_optimizer.zero_grad()
 
                 # Calculate Loss (Proto Consistency + OT Regularization)
-                loss_gen, _, _ = generator_loss_from_stats(
+                loss_gen, _, _ = calculate_generator_loss(
                     self.fedsea_generator,
                     stats,
                     device,

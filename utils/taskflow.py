@@ -81,7 +81,6 @@ class TaskFlow:
                 clients = []
                 for cid in range(args.num_clients):
                     client_data = clients_data[cid]
-                    client_data = client_data.to(self.device)
 
                     # For FedSEA, clients don't train local GNNs, so model can be None
                     if args.fed_algorithm == "FedSEA":
@@ -103,7 +102,7 @@ class TaskFlow:
                 # 5. Initialize Server
                 # ---------------------------------------------------------
                 # Server gets the FULL dataset for global evaluation (Standard Transductive Setting)
-                server_data = self.dataset.to(self.device)
+                server_data = self.dataset
 
                 self.server = get_server(
                     args.fed_algorithm, args, clients, server_model, server_data, logger

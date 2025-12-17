@@ -2,3 +2,7 @@ __pycache__
 logs
 datasets/raw_data
 .vscode
+auto_tune.py
+tune_full.log
+tuning_benchmark_full.csv
+checkpoints

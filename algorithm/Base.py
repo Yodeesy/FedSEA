@@ -20,6 +20,8 @@ class BaseServer:
         self.num_rounds = args.num_rounds
         self.T_L = args.T_L  # Local training epochs
         self.data = data
+        # Determine the device of the model
+        self.device = next(model.parameters()).device
         self.num_total_samples = sum([client.num_samples for client in self.clients])
 
     def run(self):
@@ -107,13 +109,28 @@ class BaseServer:
         """
         Evaluate the global model on the server-side test data.
         Returns Accuracy, Loss, and Macro-F1 Score.
+        Includes automatic CPU offloading for large graphs to prevent OOM.
         """
         self.model.eval()
+
+        # Determine evaluation device (CPU for large graphs, GPU otherwise)
+        eval_device = self.device
+        if hasattr(self.data, 'x') and self.data.x.shape[0] > 100000:
+            # Force CPU evaluation for large-scale graphs (e.g., Arxiv)
+            eval_device = 'cpu'
+            self.model.to('cpu')
+
+        # Temporarily move data to the evaluation device
+        if hasattr(self.data, 'to'):
+            eval_data = self.data.to(eval_device)
+        else:
+            eval_data = self.data
+
         with torch.no_grad():
             # Forward pass
-            out = self.model(self.data)
+            out = self.model(eval_data)
 
-            # Handle different GNN output formats (some return (x, logits), some just logits)
+            # Handle different GNN output formats
             if isinstance(out, (tuple, list)):
                 logits = out[-1]
             else:
@@ -125,24 +142,24 @@ class BaseServer:
             macro_f1 = 0.0
 
             # Determine mask (Test Mask or Full Data)
-            mask = getattr(self.data, 'test_mask', None)
+            mask = getattr(eval_data, 'test_mask', None)
 
             if mask is not None and mask.sum().item() > 0:
                 # Transductive Setting
-                loss = F.cross_entropy(logits[mask], self.data.y[mask])
+                loss = F.cross_entropy(logits[mask], eval_data.y[mask])
                 pred = logits[mask].max(dim=1)[1]
-                acc = pred.eq(self.data.y[mask]).sum().item() / mask.sum().item()
+                acc = pred.eq(eval_data.y[mask]).sum().item() / mask.sum().item()
 
                 # Calculate F1 (CPU required for sklearn)
-                y_true = self.data.y[mask].detach().cpu().numpy()
+                y_true = eval_data.y[mask].detach().cpu().numpy()
                 y_pred = pred.detach().cpu().numpy()
             else:
                 # Inductive / Full Graph Setting
-                loss = F.cross_entropy(logits, self.data.y)
+                loss = F.cross_entropy(logits, eval_data.y)
                 pred = logits.max(dim=1)[1]
-                acc = pred.eq(self.data.y).sum().item() / self.data.y.shape[0]
+                acc = pred.eq(eval_data.y).sum().item() / eval_data.y.shape[0]
 
-                y_true = self.data.y.detach().cpu().numpy()
+                y_true = eval_data.y.detach().cpu().numpy()
                 y_pred = pred.detach().cpu().numpy()
 
             macro_f1 = f1_score(y_true, y_pred, average='macro')
@@ -157,9 +174,15 @@ class BaseServer:
             self.logger.write_test_acc(acc)
 
             print(f"macro_f1  : {macro_f1:.4f}")
-            self.logger.write_test_f1(macro_f1)
+            if hasattr(self.logger, 'write_test_f1'):
+                self.logger.write_test_f1(macro_f1)
 
-            return acc, loss_val, macro_f1
+        # Restore model to original device if it was moved to CPU
+        if eval_device == 'cpu':
+            self.model.to(self.device)
+            # eval_data will be automatically garbage collected
+
+        return acc, loss_val, macro_f1
 
 
 class BaseClient:
@@ -186,20 +209,24 @@ class BaseClient:
 
     def train(self):
         """
-        Perform local training for T_L epochs.
+        Perform local training for one epoch.
         """
         if self.model is None:
             return 0.0
 
+        # Ensure data and model are on the same device
+        device = next(self.model.parameters()).device
+        train_data = self.data.to(device)
+
         self.model.train()
         self.optimizer.zero_grad()
 
-        _, out = self.model(self.data)
+        _, out = self.model(train_data)
 
-        if hasattr(self.data, 'train_mask') and self.data.train_mask is not None:
-            loss = self.loss_fn(out[self.data.train_mask], self.data.y[self.data.train_mask])
+        if hasattr(train_data, 'train_mask') and train_data.train_mask is not None:
+            loss = self.loss_fn(out[train_data.train_mask], train_data.y[train_data.train_mask])
         else:
-            loss = self.loss_fn(out, self.data.y)
+            loss = self.loss_fn(out, train_data.y)
 
         loss.backward()
         self.optimizer.step()

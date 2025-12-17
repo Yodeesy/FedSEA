@@ -8,7 +8,6 @@ parser = argparse.ArgumentParser(description="FedSEA: One-Shot Federated Graph L
 # 1. Environment & Paths
 # ==============================================================================
 current_path = os.path.abspath(__file__)
-# Adjusted to project structure: args.py is in root, datasets in ./datasets
 dataset_path = os.path.join(os.path.dirname(current_path), 'datasets')
 root_dir = os.path.join(dataset_path, 'raw_data')
 
@@ -34,7 +33,6 @@ data_group.add_argument("--task", type=str, default="node_classification")
 data_group.add_argument("--num_clients", type=int, default=10, help="Number of clients")
 data_group.add_argument("--dirichlet_alpha", type=float, default=0.3, help="Dirichlet Alpha (smaller = more Non-IID)")
 data_group.add_argument("--least_samples", type=int, default=10, help="Min samples per client")
-# [FIXED] Only Transductive is supported now
 data_group.add_argument("--dataset_split_metric", type=str, default="transductive", choices=["transductive"])
 data_group.add_argument("--train_val_test_split", type=float, nargs='+', default=[0.6, 0.2, 0.2])
 data_group.add_argument("--dirichlet_try_cnt", type=int, default=100)
@@ -69,7 +67,6 @@ sea_group.add_argument("--gen_lr", type=float, default=0.0001, help="Learning ra
 sea_group.add_argument("--gen_hidden", type=int, default=256, help="Hidden dim for diffusion network")
 sea_group.add_argument("--noise_dim", type=int, default=64, help="Dimension of input noise z")
 sea_group.add_argument("--diff_steps", type=int, default=50, help="Number of denoising steps (T)")
-# [CRITICAL] KNN k value for structure decoding
 sea_group.add_argument("--gen_knn", type=int, default=5, help="k for KNN structure generation")
 
 # ==============================================================================
@@ -79,22 +76,12 @@ loss_group = parser.add_argument_group('FedSEA Losses')
 loss_group.add_argument("--T_G", type=int, default=50, help="Global GNN training steps per round")
 loss_group.add_argument("--tau", type=float, default=1.0, help="Temperature for SWA weights (Entropy-based)")
 
-# [NEW] The Two Main Loss Components
+# The Two Main Loss Components
 loss_group.add_argument("--w_proto", type=float, default=20.0, help="Weight for Prototype Consistency Loss")
 loss_group.add_argument("--w_ot", type=float, default=0.01, help="Weight for FGW-OT Regularization Loss")
 
 # ==============================================================================
-# 7. Ablation / Legacy Switches
-# ==============================================================================
-ablation_group = parser.add_argument_group('Ablation')
-# Keep these for compatibility, but default to 0 (OFF)
-ablation_group.add_argument("--use_degh", type=int, default=0, help="Condition on Degree (0=Off)")
-ablation_group.add_argument("--use_phi", type=int, default=0, help="Condition on Phi (0=Off)")
-ablation_group.add_argument("--deg_bins", type=int, default=10)
-ablation_group.add_argument("--max_degree", type=int, default=100)
-
-# ==============================================================================
-# 8. Retention / Regularization (Optional)
+# 7. Regularization (EWC/Retention)
 # ==============================================================================
 reg_group = parser.add_argument_group('Regularization')
 reg_group.add_argument("--use_retention", type=int, default=0, help="Enable EWC-like retention")

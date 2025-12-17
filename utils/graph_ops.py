@@ -1,21 +1,52 @@
+# utils/graph_ops.py
 import torch
 import numpy as np
 from torch_geometric.data import Data
+from typing import List, Optional, Union
 
-def softmax_weights(entropy_list, tau=1.0):
-    e = np.exp(-np.array(entropy_list) / float(tau))
-    w = e / (e.sum() + 1e-12)
+
+def softmax_weights(entropy_list: Union[List[float], np.ndarray], tau: float = 1.0) -> np.ndarray:
+    """
+    Computes Softmax weights based on structural entropy.
+    Lower entropy indicates higher structural reliability, resulting in higher weights.
+
+    Formula: w_i = exp(-S_i / tau) / sum(exp(-S_j / tau))
+
+    Args:
+        entropy_list: List or array of entropy values.
+        tau: Temperature parameter. Higher tau -> softer distribution (closer to uniform).
+
+    Returns:
+        np.ndarray: Normalized weights summing to 1.0.
+    """
+    entropies = np.array(entropy_list)
+    # Use negative entropy because lower entropy = better structure = higher weight
+    e = np.exp(-entropies / float(tau))
+    w = e / (e.sum() + 1e-12)  # Add epsilon to avoid division by zero
     return w.astype(float)
 
 
-def fuse_graphs(pseudo_graphs, alphas, device=None):
+def fuse_graphs(pseudo_graphs: List[Data],
+                alphas: List[float],
+                device: Optional[torch.device] = None) -> Optional[Data]:
     """
-    [Unified Fusion Strategy: Concatenation]
-    逻辑：将所有生成的子图拼接成一个超级大图。
-    - Arxiv: 节点数从 2w -> 17w (恢复全图信息，关键！)
-    - Cora:  节点数从 2k -> 2w  (数据增强，提升泛化)
+    [Unified Fusion Strategy: Disjoint Concatenation]
+
+    Aggregates multiple generated subgraphs into a single large disjoint graph.
+    This effectively reconstructs the global graph distribution from local client views.
+
+    For example:
+    - Arxiv: Aggregates client subgraphs to restore global information (e.g., 20k -> 170k nodes).
+    - Cora: Acts as data augmentation to improve generalization.
+
+    Args:
+        pseudo_graphs: List of PyG Data objects (generated subgraphs).
+        alphas: List of importance weights for each subgraph (sum=1.0).
+        device: Target device for the fused graph.
+
+    Returns:
+        Data: A single PyG Data object containing the fused global graph.
     """
-    print(f"🔥🔥🔥 [DEBUG] 执行拼接融合！输入子图数量: {len(pseudo_graphs)}")
     if not pseudo_graphs:
         return None
 
@@ -26,44 +57,48 @@ def fuse_graphs(pseudo_graphs, alphas, device=None):
     all_edge_index = []
     all_edge_attr = []
 
-    # 偏移量：用来把图2接在图1后面，而不是叠在上面
+    # Offset is used to stack graphs disjointly (preventing index collision)
+    # Graph 2's indices will start where Graph 1's indices ended.
     current_offset = 0
 
+    # Pre-calculate scaling factor to normalize edge weights around 1.0
+    # Since sum(alphas)=1, avg(alpha)=1/N. We scale by N so avg(weight)=1.
+    num_graphs = len(pseudo_graphs)
+
     for i, g in enumerate(pseudo_graphs):
-        # 1. 忽略权重极小的图 (去噪)
+        # 1. Pruning: Skip graphs with negligible weights to save memory
         if alphas[i] < 1e-4:
             continue
 
-        # 2. 特征 (Feature)
+        # 2. Features
         x_curr = g.x.to(device)
         all_x.append(x_curr)
 
-        # 3. 边 (Edge Index) - 必须加上偏移量！
-        edge_index = g.edge_index.to(device)
-        edge_index_shifted = edge_index + current_offset
-        all_edge_index.append(edge_index_shifted)
+        # 3. Edge Index (with Offset Shift)
+        if g.edge_index is not None and g.edge_index.numel() > 0:
+            edge_index = g.edge_index.to(device)
+            edge_index_shifted = edge_index + current_offset
+            all_edge_index.append(edge_index_shifted)
 
-        # 4. 边权重 (Edge Weight)
-        num_edges = edge_index.size(1)
+            # 4. Edge Weights (Scaled by Client Importance)
+            num_edges = edge_index.size(1)
 
-        # 逻辑：我们将 alpha 视为样本重要性。
-        # 乘以 len(pseudo_graphs) 是为了保持权重的平均量级在 1.0 左右
-        scale_factor = float(alphas[i] * len(pseudo_graphs))
+            # Logic: Alpha reflects sample importance.
+            scale_factor = float(alphas[i] * num_graphs)
 
-        if hasattr(g, 'edge_attr') and g.edge_attr is not None:
-            # 如果生成器输出了权重，保留并缩放
-            weight = g.edge_attr.view(-1).to(device) * scale_factor
-        else:
-            # 如果没有权重，默认为 1.0 并缩放
-            weight = torch.full((num_edges,), scale_factor, device=device)
+            if hasattr(g, 'edge_attr') and g.edge_attr is not None:
+                # If generator produced weights, scale them
+                weight = g.edge_attr.view(-1).to(device) * scale_factor
+            else:
+                # Otherwise, assign uniform importance based on alpha
+                weight = torch.full((num_edges,), scale_factor, device=device)
 
-        all_edge_attr.append(weight)
+            all_edge_attr.append(weight)
 
-        # 5. 更新偏移量 (为下一个图做准备)
+        # 5. Update Offset for the next graph
         current_offset += x_curr.size(0)
 
-    # 6. 物理拼接 (Concatenation)
-    # 这步绝对不会爆显存，因为是稀疏操作
+    # 6. Physical Concatenation
     if len(all_x) > 0:
         global_x = torch.cat(all_x, dim=0)
     else:
@@ -73,9 +108,8 @@ def fuse_graphs(pseudo_graphs, alphas, device=None):
         global_edge_index = torch.cat(all_edge_index, dim=1)
         global_edge_attr = torch.cat(all_edge_attr, dim=0)
     else:
-        # 极端情况：没有任何边
+        # Handle edge case: No edges in any subgraph
         global_edge_index = torch.empty((2, 0), dtype=torch.long, device=device)
         global_edge_attr = torch.empty((0,), device=device)
 
-    # 返回拼接后的大图
     return Data(x=global_x, edge_index=global_edge_index, edge_attr=global_edge_attr)
