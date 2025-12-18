@@ -33,7 +33,7 @@ class TaskFlow:
         # 1. Load Global Dataset
         # ---------------------------------------------------------
         if args.task == "node_classification":
-            self.dataset = load_dataset(args.train_val_test_split, args.dataset_dir, args.dataset)
+            self.dataset = load_dataset(args.train_val_test_split, args.dataset_dir, args.dataset, args.seed)
 
             # Auto-detect dimensions
             input_dim = self.dataset.num_node_features

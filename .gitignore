@@ -3,6 +3,9 @@ logs
 datasets/raw_data
 .vscode
 auto_tune.py
+auto_tune_micro.py
 tune_full.log
 tuning_benchmark_full.csv
 checkpoints
+tune_cora.log
+tuning_micro_cora.csv

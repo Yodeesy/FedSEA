@@ -53,7 +53,6 @@ class FedSEAServer(BaseServer):
             self.noise_dim,
             self.feature_dim,
             self.num_classes,
-            # No degree bins anymore
             num_timesteps=getattr(args, "diff_steps", 100),
             hidden_dim=getattr(args, "gen_hidden", 256),
             args=args
@@ -184,23 +183,40 @@ class FedSEAServer(BaseServer):
         # 6. Generate Pseudo-Graphs
         # ======================================================
         pseudo_graphs = []
+
+        # [Ensemble Strategy] Read n from args, default is 1 (Single run)
+        n_samples = getattr(self.args, "gen_num_samples", 1)
+
+        if n_samples > 1:
+            print(f"FedSEA: Generating {n_samples}x augmented graphs per client (Ensemble Mode)...")
+
         for stats in stats_list:
             # Ensure num_nodes is set (fallback to 20 if missing)
             if "num_nodes" not in stats:
                 stats["num_nodes"] = int(stats.get("n_nodes", 20))
 
-            with torch.no_grad():
-                # generator.generate() now includes KNN internally
-                Gk = self.fedsea_generator.generate(stats)
+            # Generate n_samples graphs for this client context
+            for _ in range(n_samples):
+                with torch.no_grad():
+                    # Generator uses random noise z internally, so each call produces a diverse graph
+                    Gk = self.fedsea_generator.generate(stats)
 
-            Gk = Gk.to(device)
-            pseudo_graphs.append(Gk)
+                Gk = Gk.to(device)
+                pseudo_graphs.append(Gk)
+
+        if n_samples > 1:
+            expanded_alphas = []
+            for a in alphas:
+                expanded_alphas.extend([a] * n_samples)
+            alphas = expanded_alphas
 
         # ======================================================
         # 7. Fuse Graphs (Concatenation)
         # ======================================================
         # Ensure using the concatenation version from utils/graph_ops
         G_global = fuse_graphs(pseudo_graphs, alphas, device=device)
+
+        G_global.x = F.normalize(G_global.x, p=2, dim=1)
 
         # Memory Cleanup
         del pseudo_graphs
@@ -271,6 +287,7 @@ class FedSEAServer(BaseServer):
                 loss += self.lambda_r * loss_ret
 
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
 
         # [Restore] Move model back to GPU for evaluation
@@ -281,13 +298,14 @@ class FedSEAServer(BaseServer):
         # ======================================================
         # 11. Evaluation & Saving
         # ======================================================
+        ns_suffix = f"_n{n_samples}" if n_samples > 1 else ""
         # Online Eval (Current Model)
         online_acc, _, online_f1 = self.global_evaluate()
 
         if online_acc > self.best_online_acc:
             self.best_online_acc = online_acc
-            self._save_checkpoint(f"{self.args.dataset}_best_gnn_online_seed{self.args.seed}.pth", self.model)
-            print(f"✅ [Save] New Best Online Model (Acc: {online_acc:.4f})")
+            self._save_checkpoint(f"{self.args.dataset}_best_gnn_online_seed{self.args.seed}{ns_suffix}.pth", self.model)
+            print(f"[Save] New Best Online Model (Acc: {online_acc:.4f})")
 
         print(
             f"Round {self.round_idx + 1} Online Acc: {online_acc:.4f} (Best: {self.best_online_acc:.4f}) | F1: {online_f1:.4f}")
@@ -309,9 +327,9 @@ class FedSEAServer(BaseServer):
 
         if test_acc > self.best_acc:
             self.best_acc = test_acc
-            self._save_checkpoint(f"{self.args.dataset}_best_gnn_ema_seed{self.args.seed}.pth", self.model)
-            self._save_checkpoint(f"{self.args.dataset}_best_gen_seed{self.args.seed}.pth", self.fedsea_generator)
-            print(f"🏆 Round {self.round_idx + 1}: New Best EMA Acc: {self.best_acc:.4f} (Saved)")
+            self._save_checkpoint(f"{self.args.dataset}_best_gnn_ema_seed{self.args.seed}{ns_suffix}.pth", self.model)
+            self._save_checkpoint(f"{self.args.dataset}_best_gen_seed{self.args.seed}{ns_suffix}.pth", self.fedsea_generator)
+            print(f"Round {self.round_idx + 1}: New Best EMA Acc: {self.best_acc:.4f} (Saved)")
 
         print(f"Round {self.round_idx + 1} EMA Acc: {test_acc:.4f} (Best: {self.best_acc:.4f}) | F1: {test_f1:.4f}")
 

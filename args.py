@@ -44,7 +44,7 @@ fl_group = parser.add_argument_group('Federated Learning')
 fl_group.add_argument("--fed_algorithm", type=str, default="FedSEA")
 fl_group.add_argument("--num_rounds", type=int, default=100, help="Total communication rounds")
 fl_group.add_argument("--cl_sample_rate", type=float, default=1.0, help="Client sampling rate")
-fl_group.add_argument("--T_L", type=int, default=1, help="Local epochs (Not used in One-Shot FedSEA)")
+fl_group.add_argument("--T_L", type=int, default=1, help="Local epochs (Skipped in One-Shot FedSEA)")
 
 # ==============================================================================
 # 4. Global Model (Backbone GNN)
@@ -75,6 +75,7 @@ sea_group.add_argument("--gen_knn", type=int, default=5, help="k for KNN structu
 loss_group = parser.add_argument_group('FedSEA Losses')
 loss_group.add_argument("--T_G", type=int, default=50, help="Global GNN training steps per round")
 loss_group.add_argument("--tau", type=float, default=1.0, help="Temperature for SWA weights (Entropy-based)")
+loss_group.add_argument("--gen_num_samples", type=int, default=1, help="Number of graph samples per client (Ensemble size)")
 
 # The Two Main Loss Components
 loss_group.add_argument("--w_proto", type=float, default=20.0, help="Weight for Prototype Consistency Loss")
