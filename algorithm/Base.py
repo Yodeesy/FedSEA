@@ -24,6 +24,8 @@ class BaseServer:
         self.device = next(model.parameters()).device
         self.num_total_samples = sum([client.num_samples for client in self.clients])
 
+        self.stop_training = False
+
     def run(self):
         """
         Main training loop for Federated Learning.
@@ -58,6 +60,10 @@ class BaseServer:
             # FedSEA will override this method with its own logic (Generator training & Fusion).
             # Base implementation performs standard FedAvg.
             self.aggregate()
+
+            if self.stop_training:
+                print(f"\nTraining stopped early at Round {round_idx + 1}.")
+                break
 
             # 5. Global Evaluation
             self.global_evaluate()
@@ -107,82 +113,72 @@ class BaseServer:
 
     def global_evaluate(self):
         """
-        Evaluate the global model on the server-side test data.
-        Returns Accuracy, Loss, and Macro-F1 Score.
-        Includes automatic CPU offloading for large graphs to prevent OOM.
+        [Academic Rigorous Mode]
+        Evaluate the global model on BOTH Validation and Test sets.
+        Returns: val_acc, test_acc, test_f1, test_loss
         """
         self.model.eval()
 
-        # Determine evaluation device (CPU for large graphs, GPU otherwise)
+        # 1. Determine evaluation device
         eval_device = self.device
         if hasattr(self.data, 'x') and self.data.x.shape[0] > 100000:
-            # Force CPU evaluation for large-scale graphs (e.g., Arxiv)
             eval_device = 'cpu'
             self.model.to('cpu')
 
-        # Temporarily move data to the evaluation device
         if hasattr(self.data, 'to'):
             eval_data = self.data.to(eval_device)
         else:
             eval_data = self.data
 
-        with torch.no_grad():
-            # Forward pass
-            out = self.model(eval_data)
+        val_acc = 0.0
+        test_acc = 0.0
+        test_f1 = 0.0
+        loss_val = 0.0
 
-            # Handle different GNN output formats
+        with torch.no_grad():
+            out = self.model(eval_data)
             if isinstance(out, (tuple, list)):
                 logits = out[-1]
             else:
                 logits = out
 
-            # Initialize metrics
-            loss_val = 0.0
-            acc = 0.0
-            macro_f1 = 0.0
+            # --- A. Validation Accuracy  ---
+            if hasattr(eval_data, 'val_mask') and eval_data.val_mask is not None and eval_data.val_mask.sum() > 0:
+                pred_val = logits[eval_data.val_mask].max(dim=1)[1]
+                correct_val = pred_val.eq(eval_data.y[eval_data.val_mask]).sum().item()
+                val_acc = correct_val / eval_data.val_mask.sum().item()
 
-            # Determine mask (Test Mask or Full Data)
+            # --- B. Test Accuracy & Loss  ---
             mask = getattr(eval_data, 'test_mask', None)
 
             if mask is not None and mask.sum().item() > 0:
-                # Transductive Setting
+                # Transductive
                 loss = F.cross_entropy(logits[mask], eval_data.y[mask])
-                pred = logits[mask].max(dim=1)[1]
-                acc = pred.eq(eval_data.y[mask]).sum().item() / mask.sum().item()
+                pred_test = logits[mask].max(dim=1)[1]
+                test_acc = pred_test.eq(eval_data.y[mask]).sum().item() / mask.sum().item()
 
-                # Calculate F1 (CPU required for sklearn)
                 y_true = eval_data.y[mask].detach().cpu().numpy()
-                y_pred = pred.detach().cpu().numpy()
+                y_pred = pred_test.detach().cpu().numpy()
+                test_f1 = f1_score(y_true, y_pred, average='macro')
+                loss_val = loss.item()
             else:
-                # Inductive / Full Graph Setting
+                # Inductive / Fallback
                 loss = F.cross_entropy(logits, eval_data.y)
-                pred = logits.max(dim=1)[1]
-                acc = pred.eq(eval_data.y).sum().item() / eval_data.y.shape[0]
+                pred_test = logits.max(dim=1)[1]
+                test_acc = pred_test.eq(eval_data.y).sum().item() / eval_data.y.shape[0]
+                loss_val = loss.item()
 
-                y_true = eval_data.y.detach().cpu().numpy()
-                y_pred = pred.detach().cpu().numpy()
-
-            macro_f1 = f1_score(y_true, y_pred, average='macro')
-
-            # Format loss for logging
-            loss_val = loss.item() if isinstance(loss, torch.Tensor) else loss
-
-            print(f"test_loss : {loss_val:.4f}")
+            # Logging
             self.logger.write_test_loss(loss_val)
-
-            print(f"test_acc  : {acc:.4f}")
-            self.logger.write_test_acc(acc)
-
-            print(f"macro_f1  : {macro_f1:.4f}")
+            self.logger.write_test_acc(test_acc)
             if hasattr(self.logger, 'write_test_f1'):
-                self.logger.write_test_f1(macro_f1)
+                self.logger.write_test_f1(test_f1)
 
-        # Restore model to original device if it was moved to CPU
+        # Restore device
         if eval_device == 'cpu':
             self.model.to(self.device)
-            # eval_data will be automatically garbage collected
 
-        return acc, loss_val, macro_f1
+        return val_acc, test_acc, test_f1, loss_val
 
 
 class BaseClient:

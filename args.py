@@ -56,6 +56,7 @@ model_group.add_argument("--num_layers", type=int, default=2)
 model_group.add_argument("--dropout", type=float, default=0.5)
 model_group.add_argument("--server_lr", type=float, default=0.005, help="Learning rate for Global GNN")
 model_group.add_argument("--weight_decay", type=float, default=0.0005)
+model_group.add_argument('--patience', type=int, default=30, help='Patience rounds for early stopping based on Val Acc')
 
 # ==============================================================================
 # 5. FedSEA Generator (Diffusion Model)

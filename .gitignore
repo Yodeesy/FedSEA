@@ -1,4 +1,5 @@
 __pycache__
+.idea
 logs
 datasets/raw_data
 .vscode

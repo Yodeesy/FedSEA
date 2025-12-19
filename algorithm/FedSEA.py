@@ -64,8 +64,6 @@ class FedSEAServer(BaseServer):
         )
 
         self.round_idx = 0
-        self.best_acc = 0.0
-        self.best_online_acc = 0.0
 
     def aggregate(self):
         print('---------------------------')
@@ -300,15 +298,29 @@ class FedSEAServer(BaseServer):
         # ======================================================
         ns_suffix = f"_n{n_samples}" if n_samples > 1 else ""
         # Online Eval (Current Model)
-        online_acc, _, online_f1 = self.global_evaluate()
+        val_acc, test_acc, test_f1, test_loss = self.global_evaluate()
 
-        if online_acc > self.best_online_acc:
-            self.best_online_acc = online_acc
-            self._save_checkpoint(f"{self.args.dataset}_best_gnn_online_seed{self.args.seed}{ns_suffix}.pth", self.model)
-            print(f"[Save] New Best Online Model (Acc: {online_acc:.4f})")
+        if not hasattr(self, 'best_val_acc'):
+            self.best_val_acc = 0.0
+            self.test_acc_at_best_val = 0.0
+            self.early_stop_counter = 0
+            self.early_stop_patience = getattr(self.args, 'patience', 30)
+
+        if val_acc > self.best_val_acc:
+            self.best_val_acc = val_acc
+            self.test_acc_at_best_val = test_acc
+
+            self.early_stop_counter = 0
+
+            # Save Online model
+            self._save_checkpoint(f"{self.args.dataset}_best_online_val_seed{self.args.seed}{ns_suffix}.pth",
+                                  self.model)
+            print(f"[Online] New Best Val! Val: {val_acc:.4f} | Test: {test_acc:.4f} (Saved)")
+        else:
+            self.early_stop_counter += 1
 
         print(
-            f"Round {self.round_idx + 1} Online Acc: {online_acc:.4f} (Best: {self.best_online_acc:.4f}) | F1: {online_f1:.4f}")
+            f"Round {self.round_idx + 1} Online: Val: {val_acc:.4f} | Test: {test_acc:.4f} | Loss: {test_loss:.4f} | Best(Test@PeakVal): {self.test_acc_at_best_val:.4f}")
 
         # EMA Eval (Moving Average Model)
         if not hasattr(self, 'ema_state_dict'):
@@ -323,17 +335,38 @@ class FedSEAServer(BaseServer):
         backup_state = copy.deepcopy(self.model.state_dict())
         self.model.load_state_dict(self.ema_state_dict)
 
-        test_acc, _, test_f1 = self.global_evaluate()
+        ema_val_acc, ema_test_acc, ema_f1, ema_loss = self.global_evaluate()
 
-        if test_acc > self.best_acc:
-            self.best_acc = test_acc
-            self._save_checkpoint(f"{self.args.dataset}_best_gnn_ema_seed{self.args.seed}{ns_suffix}.pth", self.model)
-            self._save_checkpoint(f"{self.args.dataset}_best_gen_seed{self.args.seed}{ns_suffix}.pth", self.fedsea_generator)
-            print(f"Round {self.round_idx + 1}: New Best EMA Acc: {self.best_acc:.4f} (Saved)")
+        if not hasattr(self, 'best_ema_val_acc'):
+            self.best_ema_val_acc = 0.0
+            self.ema_test_at_best_val = 0.0
 
-        print(f"Round {self.round_idx + 1} EMA Acc: {test_acc:.4f} (Best: {self.best_acc:.4f}) | F1: {test_f1:.4f}")
+        if ema_val_acc > self.best_ema_val_acc:
+            self.best_ema_val_acc = ema_val_acc
+            self.ema_test_at_best_val = ema_test_acc
+
+            self._save_checkpoint(f"{self.args.dataset}_best_ema_val_seed{self.args.seed}{ns_suffix}.pth", self.model)
+            self._save_checkpoint(f"{self.args.dataset}_best_gen_seed{self.args.seed}{ns_suffix}.pth",
+                                  self.fedsea_generator)
+
+            print(f"[EMA] New Best Val! Val: {ema_val_acc:.4f} | Test: {ema_test_acc:.4f} (Saved)")
+
+        print(
+            f"Round {self.round_idx + 1} EMA   : Val: {ema_val_acc:.4f} | Test: {ema_test_acc:.4f} | Loss: {ema_loss:.4f} | Best(Test@PeakVal): {self.ema_test_at_best_val:.4f}")
 
         self.model.load_state_dict(backup_state)
+
+        # ---------------- C. Check Early Stopping ----------------
+        print(f"Patience: {self.early_stop_counter}/{self.early_stop_patience}")
+
+        if self.early_stop_counter >= self.early_stop_patience:
+            print(f"\nEarly stopping triggered! No improvement for {self.early_stop_patience} rounds.")
+            print(f"Final Best Result (Online): {self.test_acc_at_best_val:.4f}")
+            print(f"Final Best Result (EMA):    {self.ema_test_at_best_val:.4f}")
+
+            self.stop_training = True
+            return
+
         self.round_idx += 1
         print("FedSEA aggregation finished.")
 
