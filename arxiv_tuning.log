@@ -164,3 +164,14 @@ FedSEA: Entropies: ['0.8922', '0.9116', '0.8917', '0.8623', '0.8698', '0.9114', 
 FedSEA: Alphas:    ['0.0993', '0.0974', '0.0994', '0.1023', '0.1016', '0.0974', '0.1013', '0.0979', '0.1038', '0.0996']
 [FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
 [FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
+FedSEA: Fused global union graph -> Data(x=[169343, 128], edge_index=[2, 1693430], edge_attr=[1693430])
+[FedSEA] Graph size (169343) large. Switching training to CPU to avoid OOM.
+FedSEA: Training global model for 50 steps on cpu
+Round 9 Online: Val: 0.4210 | Test: 0.4318 | Loss: 5.0632 | Best(Test@PeakVal): 0.4343
+[EMA] New Best Val! Val: 0.0125 | Test: 0.0126 (Saved)
+Round 9 EMA: Val: 0.0125 | Test: 0.0126 | Loss: 9.3432 | Best(Test@PeakVal): 0.0126
+Patience: 0/20
+FedSEA aggregation finished.
+Round 10:
+cid : ---------------------------
+FedSEA aggregate (Round 10): Collect stats & Train Generator
