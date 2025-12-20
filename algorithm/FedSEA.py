@@ -297,7 +297,10 @@ class FedSEAServer(BaseServer):
         # 11. Evaluation & Saving
         # ======================================================
         ns_suffix = f"_n{n_samples}" if n_samples > 1 else ""
-        # Online Eval (Current Model)
+
+        improved_this_round = False
+
+        # ---------------- A. Online Eval ----------------
         val_acc, test_acc, test_f1, test_loss = self.global_evaluate()
 
         if not hasattr(self, 'best_val_acc'):
@@ -310,19 +313,16 @@ class FedSEAServer(BaseServer):
             self.best_val_acc = val_acc
             self.test_acc_at_best_val = test_acc
 
-            self.early_stop_counter = 0
+            improved_this_round = True
 
             # Save Online model
             self._save_checkpoint(f"{self.args.dataset}_best_online_val_seed{self.args.seed}{ns_suffix}.pth",
                                   self.model)
             print(f"[Online] New Best Val! Val: {val_acc:.4f} | Test: {test_acc:.4f} (Saved)")
-        else:
-            self.early_stop_counter += 1
 
-        print(
-            f"Round {self.round_idx + 1} Online: Val: {val_acc:.4f} | Test: {test_acc:.4f} | Loss: {test_loss:.4f} | Best(Test@PeakVal): {self.test_acc_at_best_val:.4f}")
+        print(f"Round {self.round_idx + 1} Online: Val: {val_acc:.4f} | Test: {test_acc:.4f} | Loss: {test_loss:.4f} | Best(Test@PeakVal): {self.test_acc_at_best_val:.4f}")
 
-        # EMA Eval (Moving Average Model)
+        # ---------------- B. EMA Eval ----------------
         if not hasattr(self, 'ema_state_dict'):
             self.ema_state_dict = copy.deepcopy(self.model.state_dict())
         else:
@@ -345,18 +345,25 @@ class FedSEAServer(BaseServer):
             self.best_ema_val_acc = ema_val_acc
             self.ema_test_at_best_val = ema_test_acc
 
-            self._save_checkpoint(f"{self.args.dataset}_best_ema_val_seed{self.args.seed}{ns_suffix}.pth", self.model)
+            improved_this_round = True
+
+            self._save_checkpoint(f"{self.args.dataset}_best_ema_val_seed{self.args.seed}{ns_suffix}.pth",
+                                  self.model)
             self._save_checkpoint(f"{self.args.dataset}_best_gen_seed{self.args.seed}{ns_suffix}.pth",
                                   self.fedsea_generator)
 
             print(f"[EMA] New Best Val! Val: {ema_val_acc:.4f} | Test: {ema_test_acc:.4f} (Saved)")
 
-        print(
-            f"Round {self.round_idx + 1} EMA   : Val: {ema_val_acc:.4f} | Test: {ema_test_acc:.4f} | Loss: {ema_loss:.4f} | Best(Test@PeakVal): {self.ema_test_at_best_val:.4f}")
+        print(f"Round {self.round_idx + 1} EMA: Val: {ema_val_acc:.4f} | Test: {ema_test_acc:.4f} | Loss: {ema_loss:.4f} | Best(Test@PeakVal): {self.ema_test_at_best_val:.4f}")
 
         self.model.load_state_dict(backup_state)
 
         # ---------------- C. Check Early Stopping ----------------
+        if improved_this_round:
+            self.early_stop_counter = 0
+        else:
+            self.early_stop_counter += 1
+
         print(f"Patience: {self.early_stop_counter}/{self.early_stop_patience}")
 
         if self.early_stop_counter >= self.early_stop_patience:

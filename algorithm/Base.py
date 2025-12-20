@@ -68,6 +68,14 @@ class BaseServer:
             # 5. Global Evaluation
             self.global_evaluate()
 
+        if not self.stop_training:
+            print(f"\nMax rounds ({self.num_rounds}) reached.")
+
+            if hasattr(self, 'test_acc_at_best_val'):
+                print(f"Final Best Result (Online): {self.test_acc_at_best_val:.4f}")
+            if hasattr(self, 'ema_test_at_best_val'):
+                print(f"Final Best Result (EMA):    {self.ema_test_at_best_val:.4f}")
+
     def communicate(self):
         """
         Broadcast global model parameters to sampled clients.

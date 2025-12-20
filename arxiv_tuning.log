@@ -1,0 +1,166 @@
+nohup: ignoring input
+🚀 [Auto-Tuner] Starting Grid Search for Arxiv on GPU 3
+📋 Total Configurations: 8
+============================================================
+
+▶️  [1/8] Running: {'w_proto': 10.0, 'gen_knn': 10, 'gen_lr': 0.001, 'dropout': 0.5, 'w_ot': 0.01}
+[System] Random seed set to: 42
+[Logger] Log file created at: /mnt/data/yodeesy/FedSEA/logs/2025-12-20-15-13-10-node_classification-ogbn-arxiv-FedSEA
+[Dataset] Loading ogbn-arxiv from /mnt/data/yodeesy/FedSEA/datasets/raw_data...
+Processing...
+Loading necessary files...
+This might take a while.
+Processing graphs...
+
+0%|          | 0/1 [00:00<?, ?it/s]
+100%|██████████| 1/1 [00:00<00:00, 18078.90it/s]
+Converting graphs into PyG objects...
+
+0%|          | 0/1 [00:00<?, ?it/s]
+100%|██████████| 1/1 [00:00<00:00, 1677.72it/s]
+Saving...
+Done!
+/mnt/data/yodeesy/miniconda3/envs/fedsea/lib/python3.8/site-packages/ogb/nodeproppred/dataset_pyg.py:69: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+self.data, self.slices = torch.load(self.processed_paths[0])
+[TaskFlow] Partitioning graph...
+Num Classes: 40
+Global Label Dist: [  565   687  4839  2080  5862  4958  1618   589  6232  2820  7869   750
+29  2358   597   403 27321   515   749  2877  2076   393  1903  2834
+22187  1257  4605  4801 21406   416 11814  2828   411  1271  7867   127
+3524  2369  1507  2029]
+[TaskFlow] Starting Server Run Loop...
+Round 1:
+cid : ---------------------------
+FedSEA aggregate (Round 1): Collect stats & Train Generator
+FedSEA: Entropies: ['0.8725', '0.9116', '0.8891', '0.8623', '0.8479', '0.8917', '0.9114', '0.8698', '0.8922', '0.9065']
+FedSEA: Alphas:    ['0.1013', '0.0974', '0.0996', '0.1023', '0.1038', '0.0994', '0.0974', '0.1016', '0.0993', '0.0979']
+[FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
+[FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
+FedSEA: Fused global union graph -> Data(x=[169343, 128], edge_index=[2, 1693430], edge_attr=[1693430])
+[FedSEA] Graph size (169343) large. Switching training to CPU to avoid OOM.
+FedSEA: Training global model for 50 steps on cpu
+[Online] New Best Val! Val: 0.0025 | Test: 0.0028 (Saved)
+Round 1 Online: Val: 0.0025 | Test: 0.0028 | Loss: 13.5586 | Best(Test@PeakVal): 0.0028
+[EMA] New Best Val! Val: 0.0025 | Test: 0.0028 (Saved)
+Round 1 EMA: Val: 0.0025 | Test: 0.0028 | Loss: 13.5586 | Best(Test@PeakVal): 0.0028
+Patience: 0/20
+FedSEA aggregation finished.
+Round 2:
+cid : ---------------------------
+FedSEA aggregate (Round 2): Collect stats & Train Generator
+FedSEA: Entropies: ['0.9116', '0.8623', '0.8725', '0.9065', '0.8479', '0.8891', '0.9114', '0.8698', '0.8922', '0.8917']
+FedSEA: Alphas:    ['0.0974', '0.1023', '0.1013', '0.0979', '0.1038', '0.0996', '0.0974', '0.1016', '0.0993', '0.0994']
+[FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
+[FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
+FedSEA: Fused global union graph -> Data(x=[169343, 128], edge_index=[2, 1693430], edge_attr=[1693430])
+[FedSEA] Graph size (169343) large. Switching training to CPU to avoid OOM.
+FedSEA: Training global model for 50 steps on cpu
+[Online] New Best Val! Val: 0.0370 | Test: 0.0276 (Saved)
+Round 2 Online: Val: 0.0370 | Test: 0.0276 | Loss: 9.7427 | Best(Test@PeakVal): 0.0276
+[EMA] New Best Val! Val: 0.0027 | Test: 0.0029 (Saved)
+Round 2 EMA: Val: 0.0027 | Test: 0.0029 | Loss: 12.5447 | Best(Test@PeakVal): 0.0029
+Patience: 0/20
+FedSEA aggregation finished.
+Round 3:
+cid : ---------------------------
+FedSEA aggregate (Round 3): Collect stats & Train Generator
+FedSEA: Entropies: ['0.8922', '0.9065', '0.8891', '0.8479', '0.9116', '0.8725', '0.8623', '0.9114', '0.8698', '0.8917']
+FedSEA: Alphas:    ['0.0993', '0.0979', '0.0996', '0.1038', '0.0974', '0.1013', '0.1023', '0.0974', '0.1016', '0.0994']
+[FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
+[FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
+FedSEA: Fused global union graph -> Data(x=[169343, 128], edge_index=[2, 1693430], edge_attr=[1693430])
+[FedSEA] Graph size (169343) large. Switching training to CPU to avoid OOM.
+FedSEA: Training global model for 50 steps on cpu
+[Online] New Best Val! Val: 0.0513 | Test: 0.0426 (Saved)
+Round 3 Online: Val: 0.0513 | Test: 0.0426 | Loss: 9.5897 | Best(Test@PeakVal): 0.0426
+[EMA] New Best Val! Val: 0.0032 | Test: 0.0032 (Saved)
+Round 3 EMA: Val: 0.0032 | Test: 0.0032 | Loss: 11.6459 | Best(Test@PeakVal): 0.0032
+Patience: 0/20
+FedSEA aggregation finished.
+Round 4:
+cid : ---------------------------
+FedSEA aggregate (Round 4): Collect stats & Train Generator
+FedSEA: Entropies: ['0.8922', '0.8917', '0.8725', '0.9116', '0.8623', '0.8479', '0.8698', '0.9065', '0.9114', '0.8891']
+FedSEA: Alphas:    ['0.0993', '0.0994', '0.1013', '0.0974', '0.1023', '0.1038', '0.1016', '0.0979', '0.0974', '0.0996']
+[FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
+[FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
+FedSEA: Fused global union graph -> Data(x=[169343, 128], edge_index=[2, 1693430], edge_attr=[1693430])
+[FedSEA] Graph size (169343) large. Switching training to CPU to avoid OOM.
+FedSEA: Training global model for 50 steps on cpu
+[Online] New Best Val! Val: 0.0717 | Test: 0.0583 (Saved)
+Round 4 Online: Val: 0.0717 | Test: 0.0583 | Loss: 7.3690 | Best(Test@PeakVal): 0.0583
+[EMA] New Best Val! Val: 0.0039 | Test: 0.0040 (Saved)
+Round 4 EMA: Val: 0.0039 | Test: 0.0040 | Loss: 10.9691 | Best(Test@PeakVal): 0.0040
+Patience: 0/20
+FedSEA aggregation finished.
+Round 5:
+cid : ---------------------------
+FedSEA aggregate (Round 5): Collect stats & Train Generator
+FedSEA: Entropies: ['0.9065', '0.9114', '0.8725', '0.8922', '0.9116', '0.8891', '0.8698', '0.8479', '0.8623', '0.8917']
+FedSEA: Alphas:    ['0.0979', '0.0974', '0.1013', '0.0993', '0.0974', '0.0996', '0.1016', '0.1038', '0.1023', '0.0994']
+[FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
+[FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
+FedSEA: Fused global union graph -> Data(x=[169343, 128], edge_index=[2, 1693430], edge_attr=[1693430])
+[FedSEA] Graph size (169343) large. Switching training to CPU to avoid OOM.
+FedSEA: Training global model for 50 steps on cpu
+[Online] New Best Val! Val: 0.0964 | Test: 0.0825 (Saved)
+Round 5 Online: Val: 0.0964 | Test: 0.0825 | Loss: 6.2117 | Best(Test@PeakVal): 0.0825
+[EMA] New Best Val! Val: 0.0051 | Test: 0.0050 (Saved)
+Round 5 EMA: Val: 0.0051 | Test: 0.0050 | Loss: 10.4540 | Best(Test@PeakVal): 0.0050
+Patience: 0/20
+FedSEA aggregation finished.
+Round 6:
+cid : ---------------------------
+FedSEA aggregate (Round 6): Collect stats & Train Generator
+FedSEA: Entropies: ['0.8725', '0.9116', '0.8922', '0.8479', '0.8698', '0.9114', '0.8623', '0.8891', '0.9065', '0.8917']
+FedSEA: Alphas:    ['0.1013', '0.0974', '0.0993', '0.1038', '0.1016', '0.0974', '0.1023', '0.0996', '0.0979', '0.0994']
+[FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
+[FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
+FedSEA: Fused global union graph -> Data(x=[169343, 128], edge_index=[2, 1693430], edge_attr=[1693430])
+[FedSEA] Graph size (169343) large. Switching training to CPU to avoid OOM.
+FedSEA: Training global model for 50 steps on cpu
+[Online] New Best Val! Val: 0.3098 | Test: 0.3088 (Saved)
+Round 6 Online: Val: 0.3098 | Test: 0.3088 | Loss: 5.0125 | Best(Test@PeakVal): 0.3088
+[EMA] New Best Val! Val: 0.0070 | Test: 0.0069 (Saved)
+Round 6 EMA: Val: 0.0070 | Test: 0.0069 | Loss: 10.0823 | Best(Test@PeakVal): 0.0069
+Patience: 0/20
+FedSEA aggregation finished.
+Round 7:
+cid : ---------------------------
+FedSEA aggregate (Round 7): Collect stats & Train Generator
+FedSEA: Entropies: ['0.9065', '0.8917', '0.8698', '0.8623', '0.8479', '0.8725', '0.9114', '0.8922', '0.9116', '0.8891']
+FedSEA: Alphas:    ['0.0979', '0.0994', '0.1016', '0.1023', '0.1038', '0.1013', '0.0974', '0.0993', '0.0974', '0.0996']
+[FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
+[FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
+FedSEA: Fused global union graph -> Data(x=[169343, 128], edge_index=[2, 1693430], edge_attr=[1693430])
+[FedSEA] Graph size (169343) large. Switching training to CPU to avoid OOM.
+FedSEA: Training global model for 50 steps on cpu
+[Online] New Best Val! Val: 0.4249 | Test: 0.4318 (Saved)
+Round 7 Online: Val: 0.4249 | Test: 0.4318 | Loss: 4.8063 | Best(Test@PeakVal): 0.4318
+[EMA] New Best Val! Val: 0.0091 | Test: 0.0088 (Saved)
+Round 7 EMA: Val: 0.0091 | Test: 0.0088 | Loss: 9.8143 | Best(Test@PeakVal): 0.0088
+Patience: 0/20
+FedSEA aggregation finished.
+Round 8:
+cid : ---------------------------
+FedSEA aggregate (Round 8): Collect stats & Train Generator
+FedSEA: Entropies: ['0.9114', '0.8922', '0.8698', '0.8623', '0.8479', '0.9065', '0.8725', '0.8891', '0.8917', '0.9116']
+FedSEA: Alphas:    ['0.0974', '0.0993', '0.1016', '0.1023', '0.1038', '0.0979', '0.1013', '0.0996', '0.0994', '0.0974']
+[FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
+[FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
+FedSEA: Fused global union graph -> Data(x=[169343, 128], edge_index=[2, 1693430], edge_attr=[1693430])
+[FedSEA] Graph size (169343) large. Switching training to CPU to avoid OOM.
+FedSEA: Training global model for 50 steps on cpu
+[Online] New Best Val! Val: 0.4263 | Test: 0.4343 (Saved)
+Round 8 Online: Val: 0.4263 | Test: 0.4343 | Loss: 4.9685 | Best(Test@PeakVal): 0.4343
+[EMA] New Best Val! Val: 0.0110 | Test: 0.0108 (Saved)
+Round 8 EMA: Val: 0.0110 | Test: 0.0108 | Loss: 9.5634 | Best(Test@PeakVal): 0.0108
+Patience: 0/20
+FedSEA aggregation finished.
+Round 9:
+cid : ---------------------------
+FedSEA aggregate (Round 9): Collect stats & Train Generator
+FedSEA: Entropies: ['0.8922', '0.9116', '0.8917', '0.8623', '0.8698', '0.9114', '0.8725', '0.9065', '0.8479', '0.8891']
+FedSEA: Alphas:    ['0.0993', '0.0974', '0.0994', '0.1023', '0.1016', '0.0974', '0.1013', '0.0979', '0.1038', '0.0996']
+[FGW-OT] Aligning 10 clients (beta=0.5, iter=5)...
+[FedSEA] FGW-OT Alignment finished. (w_ot=0.01)
